@@ -115,5 +115,7 @@ breakfor:
 		free(sn);
 	}
 
+	printf("    [+] sid = %d\n", sid);
+
 	return sid;
 }

