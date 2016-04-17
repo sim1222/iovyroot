@@ -31,17 +31,13 @@
 #include <linux/loop.h>
 #include "start_daemon.h"
 
-#define SU_IMAGE_PATH           "/data/su.img"
-#define SU_MOUNT_POINT          "/su"
+#define SYSTEM_IMAGE_PATH       "/data/local/system.ext4"
+#define SYSTEM_MOUNT_POINT      "/system"
 
-#define INSMOD_CMD              "/system/bin/insmod"
-#define MOUNT_CMD               "/system/bin/mount"
-#define MKDIR_CMD               "/system/bin/mkdir"
 #define BUSYBOX_CMD             "/data/local/busybox"
+#define START_CMD               "/system/bin/start"
 
-#define INIT_D_PATH             "/su/etc/init.d"
-#define RIC_DISABLER_MOD_PATH   "/data/local/ric_disabler_mod.ko"
-
+#define INIT_D_PATH             "/system/etc/init.d"
 
 static int
 set_init_ns(void)
@@ -143,60 +139,12 @@ run_command(char *const *cmd)
   return 0;
 }
 
-static int
-make_mount_point(void)
-{
-  static char * const cmd1[] = {
-    "Disable RIC",
-    INSMOD_CMD,
-    RIC_DISABLER_MOD_PATH,
-    NULL
-  };
-  static char * const cmd2[] = {
-    "Remount rw rootfs",
-    MOUNT_CMD,
-    "-o",
-    "rw,remount",
-    "/",
-    NULL
-  };
-  static char * const cmd3[] = {
-    "Make mount point for su.img",
-    MKDIR_CMD,
-    "-p",
-    SU_MOUNT_POINT,
-    NULL
-  };
-
-  if (run_command(cmd1)
-   || run_command(cmd2)
-   || run_command(cmd3)) {
-    return -1;
-  }
-
-  return 0;
-}
-
 int
-start_daemon(void)
+mount_system_image(void)
 {
-  static char * const cmd[] = {
-    "Run parts in " INIT_D_PATH,
-    BUSYBOX_CMD,
-    "run-parts",
-    INIT_D_PATH,
-    NULL
-  };
-
-  return run_command(cmd);
-}
-
-int
-mount_su_image(void)
-{
-  const char *type = "ext4";
-  const char *source = SU_IMAGE_PATH;
-  const char *target = SU_MOUNT_POINT;
+  const char *system = "ext4";
+  const char *source = SYSTEM_IMAGE_PATH;
+  const char *target = SYSTEM_MOUNT_POINT;
   unsigned flags = MS_RDONLY;
   const char *options = NULL;
   char loopname[64];
@@ -205,10 +153,6 @@ mount_su_image(void)
   int n;
 
   set_init_ns();
-
-  if (make_mount_point()) {
-    return -1;
-  }
 
   printf("    [+] Setup loopback interface\n");
 
@@ -247,9 +191,9 @@ mount_su_image(void)
 
         printf("    [+] Use loopback device as %s\n", loopname);
 
-        printf("    [+] Mount su image\n");
+        printf("    [+] Mount system image\n");
+        ret = mount(loopname, target, system, flags, options);
 
-        ret = mount(loopname, target, type, flags, options);
         if (ret < 0) {
           ioctl(loop, LOOP_CLR_FD, 0);
           close(loop);
@@ -265,4 +209,29 @@ mount_su_image(void)
   }
 
   return -1;
+}
+
+int
+start_daemon(void)
+{
+  static char * const cmd1[] = {
+    "Start Superuser daemon",
+    START_CMD,
+    "flash_recovery",
+    NULL
+  };
+  static char * const cmd2[] = {
+    "Run parts in " INIT_D_PATH,
+    BUSYBOX_CMD,
+    "run-parts",
+    INIT_D_PATH,
+    NULL
+  };
+
+  if (run_command(cmd1)
+   || run_command(cmd2)) {
+    return -1;
+  }
+
+  return 0;
 }

@@ -430,7 +430,7 @@ int main(int argc, char* argv[])
 
 		if(argc <= 1)
 		{
-			if (mount_su_image() || start_daemon())
+			if (mount_system_image() || start_daemon())
 				ret = 1;
 		}
 		else

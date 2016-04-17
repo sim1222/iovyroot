@@ -16,5 +16,5 @@
  *
  */
 
-int mount_su_image(void);
+int mount_system_image(void);
 int start_daemon(void);
