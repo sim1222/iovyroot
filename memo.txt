@@ -1,0 +1,6 @@
+必要アドレス
+ptmx_fops
+sidtab
+policydb
+selinux_enabled
+selinux_enforcing
